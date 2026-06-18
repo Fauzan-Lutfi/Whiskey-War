@@ -15,17 +15,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#06090f;font-family:
   box-shadow:0 0 0 2px rgba(100,160,255,0.2), 0 20px 60px rgba(0,0,0,0.8);
   border-radius:4px;
 }
-  /* ===== MOBILE RESPONSIVE FIX ===== */
+  /* Mobile: scale down only when viewport smaller than game */
   #gameContainer{transform-origin:top center;}
-  @media(max-width:740px){
-      #gameContainer{
-            position:fixed!important;
-            top:0!important;left:50%!important;
-            transform:translateX(-50%) scale(var(--gs,1))!important;
-            transform-origin:top center!important;
-      }
-      #dpad,#actionBtn{display:flex!important;}
-  }
   
 #gameCanvas{display:block;width:100%;height:100%;cursor:default;}
 
@@ -1317,7 +1308,7 @@ spawnSnow(50);
 
 // Init canvas size
 resize();
-  // ===== MOBILE SCALE FIX =====
+// ===== MOBILE SCALE FIX (scale DOWN only, never up) =====
   function applyMobileScale(){
       var gc=document.getElementById('gameContainer');
       if(!gc)return;
@@ -1325,24 +1316,27 @@ resize();
       var gh=gc.offsetHeight||460;
       var vw=window.innerWidth;
       var vh=window.innerHeight;
-      var sx=vw/gw;
+      // Only scale if viewport is SMALLER than game — never scale up
+    var sx=vw/gw;
       var sy=vh/gh;
-      var s=Math.min(sx,sy,1);
-      gc.style.setProperty('--gs',s);
-      if(vw<740||vh<480){
-            gc.style.position='fixed';
-            gc.style.top='0';
-            gc.style.left='50%';
-            gc.style.transform='translateX(-50%) scale('+s+')';
-            gc.style.transformOrigin='top center';
-            gc.style.marginTop='0';
-            document.body.style.overflow='hidden';
-      }
+      var s=Math.min(sx,sy,1); // cap at 1 so desktop stays normal
+    if(s<1){
+          gc.style.position='fixed';
+          gc.style.top='0';
+          gc.style.left='50%';
+          gc.style.transform='translateX(-50%) scale('+s+')';
+          gc.style.transformOrigin='top center';
+          gc.style.marginTop='0';
+    } else {
+          // Desktop/laptop: restore original centred transform
+        gc.style.position='fixed';
+          gc.style.top='50%';
+          gc.style.left='50%';
+          gc.style.transform='translate(-50%,-50%)';
+          gc.style.transformOrigin='';
+          gc.style.marginTop='';
+    }
   }
   applyMobileScale();
   window.addEventListener('resize',applyMobileScale);
-  window.addEventListener('orientationchange',function(){setTimeout(applyMobileScale,300);});
-  
-</script>
-</body>
-</html>
+  window.addEventListener('orientationchange',function(){setTimeout(applyMobileScale,200);});
