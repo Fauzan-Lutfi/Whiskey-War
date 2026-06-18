@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Perang Wiski: Pengembaraan Aman | Whisky War Adventure</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#06090f;font-family:'Segoe UI',Arial,sans-serif;}
+#gameContainer{
+  position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  overflow:hidden;
+  /* shadow so the game box looks distinct from background */
+  box-shadow:0 0 0 2px rgba(100,160,255,0.2), 0 20px 60px rgba(0,0,0,0.8);
+  border-radius:4px;
+}
+#gameCanvas{display:block;width:100%;height:100%;cursor:default;}
+
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:20;}
+#hudBar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:linear-gradient(180deg,rgba(0,0,0,0.75),transparent);gap:10px;}
+#levelBadge{background:linear-gradient(135deg,#1a3a6e,#0d2040);border:2px solid #4a8fd4;border-radius:20px;padding:4px 14px;font-size:0.78rem;font-weight:700;color:#a8d4f5;letter-spacing:1px;}
+#missionText{flex:1;text-align:center;font-size:0.7rem;color:#ffe08a;text-shadow:0 1px 4px rgba(0,0,0,0.8);padding:0 8px;line-height:1.3;}
+#scoreBox{background:rgba(0,0,0,0.5);border:1px solid rgba(255,215,0,0.4);border-radius:12px;padding:3px 12px;font-size:0.75rem;color:#ffd700;}
+#timerBox{background:rgba(0,0,0,0.5);border:1px solid rgba(100,200,255,0.4);border-radius:12px;padding:3px 12px;font-size:0.75rem;color:#6bcfff;transition:color 0.3s;}
+#timerBox.rush{color:#ff6b6b;border-color:rgba(255,107,107,0.6);animation:timerPulse 0.6s ease-in-out infinite;}
+@keyframes timerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+/* Narrator box */
+#narrator{position:absolute;bottom:0;left:0;right:0;z-index:30;pointer-events:none;padding:10px 14px;}
+#narratorBox{background:linear-gradient(135deg,rgba(10,20,50,0.97),rgba(5,15,40,0.97));border:2px solid rgba(100,160,255,0.6);border-radius:14px;padding:12px 16px;max-width:640px;margin:0 auto;box-shadow:0 0 30px rgba(60,120,255,0.3);transition:all 0.4s ease;}
+#narratorBox.hidden{opacity:0;transform:translateY(20px);}
+.nar-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.nar-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2a5aab,#1a3a7e);border:2px solid #4a8fd4;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.nar-name{font-size:0.65rem;letter-spacing:2px;color:#4a9fd4;text-transform:uppercase;font-weight:700;}
+#narText{font-size:0.82rem;line-height:1.55;color:#d8eaff;}
+#narTextEn{font-size:0.72rem;color:#6a9abf;margin-top:4px;font-style:italic;line-height:1.4;}
+#narNext{pointer-events:all;margin-top:10px;background:linear-gradient(135deg,#2a6ad4,#1a4a94);border:none;border-radius:8px;padding:6px 18px;color:white;font-size:0.72rem;font-weight:700;letter-spacing:1px;cursor:pointer;display:none;transition:all 0.2s;}
+#narNext:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(42,106,212,0.5);}
+
+/* Level Complete Modal */
+#levelComplete{position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);backdrop-filter:blur(5px);}
+#levelComplete.hidden{display:none;}
+#lcBox{background:linear-gradient(145deg,#0d2040,#1a3a6e);border:2px solid #4a8fd4;border-radius:16px;padding:22px 28px;text-align:center;max-width:400px;width:92%;animation:lcPop 0.5s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes lcPop{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+.lc-star{font-size:2.4rem;margin-bottom:6px;}
+.lc-title{font-size:1.2rem;font-weight:900;color:#ffd700;margin-bottom:3px;}
+.lc-title-ms{font-size:0.85rem;color:#a8d4f5;margin-bottom:10px;}
+.lc-fact{background:rgba(255,255,255,0.06);border:1px solid rgba(100,180,255,0.3);border-radius:8px;padding:9px 12px;font-size:0.74rem;color:#c0d8f0;line-height:1.5;margin-bottom:14px;text-align:left;}
+.lc-fact-en{font-size:0.66rem;color:#6a9abf;margin-top:4px;font-style:italic;}
+#lcBtn{background:linear-gradient(135deg,#27ae60,#1a8a48);border:none;border-radius:9px;padding:10px 28px;color:white;font-size:0.85rem;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;width:100%;}
+#lcBtn:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(39,174,96,0.4);}
+
+/* Intro Screen — compact, fits container */
+#introScreen{position:absolute;inset:0;z-index:60;background:linear-gradient(160deg,#060d1e,#0d1e3a,#08121e);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px;overflow:hidden;}
+#introScreen.hidden{display:none;}
+.intro-logo{font-size:2.6rem;margin-bottom:5px;animation:float 3s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.intro-title{font-size:1.8rem;font-weight:900;color:#ffd700;margin-bottom:2px;text-shadow:0 0 22px rgba(255,215,0,0.4);}
+.intro-sub{font-size:0.75rem;color:#a8d4f5;margin-bottom:7px;letter-spacing:2px;}
+.intro-desc{max-width:460px;font-size:0.71rem;color:#7090b0;line-height:1.45;margin-bottom:10px;}
+.ctrl-hint{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
+.ctrl-chip{background:rgba(255,255,255,0.06);border:1px solid rgba(100,160,255,0.3);border-radius:6px;padding:4px 9px;font-size:0.63rem;color:#a0c0e0;display:flex;align-items:center;gap:4px;}
+#startBtn{background:linear-gradient(135deg,#c4a34b,#8b6914);border:none;border-radius:10px;padding:11px 38px;color:#0a0f1e;font-size:0.88rem;font-weight:900;letter-spacing:3px;cursor:pointer;transition:all 0.3s;animation:pulse-btn 2s ease-in-out infinite;}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 16px rgba(196,163,75,0.4)}50%{box-shadow:0 0 32px rgba(196,163,75,0.7)}}
+#startBtn:hover{transform:translateY(-2px);}
+
+/* Task overlay */
+#taskOverlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);}
+#taskOverlay.hidden{display:none;}
+#taskBox{background:linear-gradient(145deg,#0d2040,#162840);border:2px solid #4a8fd4;border-radius:14px;padding:18px;max-width:480px;width:100%;max-height:88%;overflow-y:auto;animation:lcPop 0.35s cubic-bezier(0.34,1.56,0.64,1);}
+.task-title{font-size:1rem;font-weight:900;color:#ffd700;margin-bottom:2px;}
+.task-title-ms{font-size:0.8rem;color:#a8d4f5;margin-bottom:11px;}
+.task-body{margin-bottom:13px;}
+#taskCompleteBtn{background:linear-gradient(135deg,#27ae60,#1a8a48);border:none;border-radius:9px;padding:10px 20px;color:white;font-size:0.82rem;font-weight:700;cursor:pointer;width:100%;transition:all 0.2s;display:none;}
+#taskCompleteBtn:hover{transform:translateY(-1px);}
+
+/* Quiz gate overlay */
+#quizOverlay{position:absolute;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(3,8,20,0.86);backdrop-filter:blur(4px);}
+#quizOverlay.hidden{display:none;}
+#quizBox{background:linear-gradient(145deg,#0d2040,#162a48);border:2px solid #ffd700;border-radius:16px;padding:18px 20px;max-width:480px;width:100%;max-height:90%;overflow-y:auto;animation:lcPop 0.35s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 0 36px rgba(255,215,0,0.25);}
+.quiz-badge{display:inline-block;background:linear-gradient(135deg,#c4a34b,#8b6914);color:#0a0f1e;font-size:0.62rem;font-weight:900;letter-spacing:1.5px;padding:4px 12px;border-radius:20px;margin-bottom:12px;}
+.quiz-q{font-size:0.98rem;font-weight:800;color:#fff;line-height:1.45;margin-bottom:3px;}
+.quiz-q-en{font-size:0.74rem;color:#7fb0d8;font-style:italic;line-height:1.4;margin-bottom:14px;}
+.quiz-opt{display:block;width:100%;text-align:left;background:rgba(74,143,212,0.14);border:2px solid rgba(100,160,255,0.4);border-radius:11px;padding:11px 14px;margin-bottom:9px;color:#dCEAFb;font-size:0.84rem;font-weight:700;cursor:pointer;transition:all 0.15s;font-family:inherit;line-height:1.3;}
+.quiz-opt .opt-en{display:block;font-size:0.68rem;color:#7fa8cf;font-weight:400;font-style:italic;margin-top:2px;}
+.quiz-opt:hover:not(:disabled){background:rgba(74,143,212,0.28);border-color:#6bcfff;transform:translateY(-1px);}
+.quiz-opt.correct{background:rgba(39,174,96,0.32);border-color:#27ae60;color:#fff;}
+.quiz-opt.wrong{background:rgba(192,57,43,0.28);border-color:#e74c3c;color:#ffd0cb;animation:shakeX 0.4s;}
+.quiz-opt:disabled{cursor:default;}
+@keyframes shakeX{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+#quizFeedback{margin-top:6px;font-size:0.8rem;font-weight:700;text-align:center;min-height:20px;line-height:1.4;}
+#quizFeedback .fb-en{display:block;font-size:0.68rem;font-weight:400;font-style:italic;opacity:0.85;}
+
+/* Virtual D-pad */
+#dpad{position:absolute;bottom:90px;left:16px;z-index:25;display:none;}
+.dpad-row{display:flex;justify-content:center;gap:4px;margin:2px 0;}
+.dpad-btn{width:44px;height:44px;background:rgba(60,100,200,0.35);border:2px solid rgba(100,160,255,0.5);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background 0.1s;}
+.dpad-btn:active,.dpad-btn.pressed{background:rgba(100,160,255,0.55);}
+#actionBtn{position:absolute;bottom:90px;right:16px;z-index:25;display:none;width:56px;height:56px;background:linear-gradient(135deg,#c4a34b,#8b6914);border:none;border-radius:50%;font-size:1.4rem;cursor:pointer;color:#0a0f1e;font-weight:700;box-shadow:0 4px 16px rgba(196,163,75,0.4);}
+
+/* Minimap */
+#minimap{position:absolute;top:52px;right:10px;z-index:22;background:rgba(0,0,0,0.6);border:1px solid rgba(100,160,255,0.4);border-radius:8px;overflow:hidden;}
+
+/* Sound toggle */
+#soundToggle{position:absolute;top:52px;left:10px;z-index:22;background:rgba(0,0,0,0.55);border:1px solid rgba(100,160,255,0.3);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:0.75rem;color:#a8d4f5;transition:all 0.2s;}
+#soundToggle:hover{border-color:rgba(100,160,255,0.7);}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <canvas id="minimap" width="90" height="70"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hudBar">
+      <div id="levelBadge">TAHAP 1</div>
+      <div id="missionText">Selamat datang, Diplomat!</div>
+      <div id="timerBox">⏱️ 0:00</div>
+      <div id="scoreBox">⭐ 0</div>
+    </div>
+  </div>
+
+  <button id="soundToggle">🔊 BUNYI</button>
+
+  <!-- Narrator -->
+  <div id="narrator"><div id="narratorBox" class="hidden">
+    <div class="nar-header"><div class="nar-avatar">🎙️</div><div class="nar-name">PENASIHAT DIPLOMAT</div></div>
+    <div id="narText"></div>
+    <div id="narTextEn"></div>
+    <button id="narNext">Teruskan ▶</button>
+  </div></div>
+
+  <!-- Level Complete -->
+  <div id="levelComplete" class="hidden">
+    <div id="lcBox">
+      <div class="lc-star" id="lcStar">⭐</div>
+      <div class="lc-title" id="lcTitle">TAHAP SELESAI!</div>
+      <div class="lc-title-ms" id="lcTitleMs">Level Complete!</div>
+      <div class="lc-fact" id="lcFact"></div>
+      <button id="lcBtn" onclick="nextLevel()">TAHAP SETERUSNYA ▶</button>
+    </div>
+  </div>
+
+  <!-- Task Overlay -->
+  <div id="taskOverlay" class="hidden">
+    <div id="taskBox">
+      <div class="task-title" id="taskTitle"></div>
+      <div class="task-title-ms" id="taskTitleMs"></div>
+      <div class="task-body" id="taskBody"></div>
+      <button id="taskCompleteBtn" onclick="completeTask()">✅ SELESAI TUGASAN!</button>
+    </div>
+  </div>
+
+  <!-- Quiz Gate -->
+  <div id="quizOverlay" class="hidden">
+    <div id="quizBox">
+      <div class="quiz-badge" id="quizBadge">❓ SOALAN KUIZ · QUIZ</div>
+      <div class="quiz-q" id="quizQ"></div>
+      <div class="quiz-q-en" id="quizQEn"></div>
+      <div id="quizOpts"></div>
+      <div id="quizFeedback"></div>
+    </div>
+  </div>
+
+  <!-- Virtual Controls -->
+  <div id="dpad">
+    <div class="dpad-row"><button class="dpad-btn" id="btn-up" ontouchstart="setKey('up',true)" ontouchend="setKey('up',false)">▲</button></div>
+    <div class="dpad-row">
+      <button class="dpad-btn" id="btn-left" ontouchstart="setKey('left',true)" ontouchend="setKey('left',false)">◀</button>
+      <button class="dpad-btn" id="btn-down" ontouchstart="setKey('down',true)" ontouchend="setKey('down',false)">▼</button>
+      <button class="dpad-btn" id="btn-right" ontouchstart="setKey('right',true)" ontouchend="setKey('right',false)">▶</button>
+    </div>
+  </div>
+  <button id="actionBtn" ontouchstart="handleAction()">⚡</button>
+
+  <!-- Intro Screen -->
+  <div id="introScreen">
+    <div class="intro-logo">🥃</div>
+    <div class="intro-title">PENGEMBARAAN AMAN</div>
+    <div class="intro-sub">PERANG WISKI · WHISKY WAR ADVENTURE</div>
+    <div class="intro-desc">Real talk: dua negara gaduh 49 tahun atas sebatu kecik di Artik — tapi tak tembak sekali pun. Senjata mereka? <strong style="color:#ffd700">wiski, bendera & EQ (kawal emosi)</strong>. Baca emosi setiap pihak, main bijak, setel secara aman.<br>⏱️ <strong style="color:#6bcfff">Setiap level ada timer</strong> — laju setel, lagi banyak bintang!</div>
+    <div class="ctrl-hint">
+      <div class="ctrl-chip">⌨️ WASD / Anak Panah</div>
+      <div class="ctrl-chip">🎮 Gamepad / Joystick</div>
+      <div class="ctrl-chip">📱 D-Pad Virtual</div>
+      <div class="ctrl-chip">SPACE / A = Interaksi</div>
+    </div>
+    <button id="startBtn" onclick="startGame()">⚓ MULAKAN MISI</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CORE SETUP
+// ═══════════════════════════════════════════════════════════
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('gameContainer');
+const mmCanvas = document.getElementById('minimap');
+const mmCtx = mmCanvas.getContext('2d');
+
+// Base game resolution — comfortable for 1366x768 laptops
+const BASE_W = 720, BASE_H = 460;
+let W = BASE_W, H = BASE_H;
+
+function resize() {
+  const ww = window.innerWidth, wh = window.innerHeight;
+  // Target 90% of screen, never exceed base resolution at 1:1
+  const scale = Math.min((ww * 0.96) / BASE_W, (wh * 0.96) / BASE_H, 1.0);
+  const cw = Math.round(BASE_W * scale);
+  const ch = Math.round(BASE_H * scale);
+
+  container.style.width  = cw + 'px';
+  container.style.height = ch + 'px';
+  canvas.width  = BASE_W;
+  canvas.height = BASE_H;
+  W = BASE_W; H = BASE_H;
+
+  const isMobile = ww < 600;
+  document.getElementById('dpad').style.display      = isMobile ? 'block' : 'none';
+  document.getElementById('actionBtn').style.display = isMobile ? 'block' : 'none';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════════════════
+//  AUDIO ENGINE
+// ═══════════════════════════════════════════════════════════
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx, masterGain, musicGain, sfxGain, soundEnabled = true;
+let currentMusicStop = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new AudioCtx();
+  masterGain = audioCtx.createGain(); masterGain.gain.value = 0.7; masterGain.connect(audioCtx.destination);
+  musicGain = audioCtx.createGain(); musicGain.gain.value = 0.35; musicGain.connect(masterGain);
+  sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(masterGain);
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('soundToggle');
+  if (!soundEnabled) { if (masterGain) masterGain.gain.value = 0; btn.textContent = '🔇 SENYAP'; }
+  else { if (masterGain) masterGain.gain.value = 0.7; btn.textContent = '🔊 BUNYI'; }
+}
+document.getElementById('soundToggle').onclick = toggleSound;
+
+function playTone(freq, type, dur, vol, delay = 0, dest = null) {
+  if (!audioCtx || !soundEnabled) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+  g.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + delay + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + dur);
+  osc.connect(g); g.connect(dest || sfxGain);
+  osc.start(audioCtx.currentTime + delay);
+  osc.stop(audioCtx.currentTime + delay + dur + 0.05);
+}
+
+function playChord(notes, dur, vol = 0.15) {
+  notes.forEach((n, i) => playTone(n, 'sine', dur, vol, i * 0.06, musicGain));
+}
+
+function sfxStep() { playTone(180 + Math.random() * 40, 'triangle', 0.06, 0.15); }
+function sfxInteract() {
+  [440, 554, 659].forEach((f, i) => playTone(f, 'sine', 0.15, 0.2, i * 0.08));
+}
+function sfxSuccess() {
+  [523, 659, 784, 1047].forEach((f, i) => playTone(f, 'triangle', 0.25, 0.25, i * 0.1));
+}
+function sfxComplete() {
+  const notes = [523, 587, 659, 784, 880, 1047];
+  notes.forEach((f, i) => playTone(f, 'sine', 0.3, 0.22, i * 0.12));
+}
+function sfxWrong() {
+  playTone(196, 'sine', 0.18, 0.18);
+  playTone(155, 'sine', 0.24, 0.18, 0.12);
+}
+function sfxCelebrate() {
+  for (let i = 0; i < 8; i++) { playTone(400 + i * 80, 'square', 0.15, 0.2, i * 0.08); }
+  setTimeout(() => sfxComplete(), 800);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BACKGROUND MUSIC per level
+// ═══════════════════════════════════════════════════════════
+const MUSIC_THEMES = {
+  0: [[261,329,392], [220,277,330]], // calm intro
+  1: [[196,247,294], [220,261,330], [261,329,392], [247,311,370]], // explore arctic
+  2: [[330,415,494], [294,370,440], [311,392,466]], // slightly tense
+  3: [[392,494,587], [349,440,523], [329,415,494]], // playful quirky
+  4: [[261,329,392], [293,369,440], [329,415,494]], // warm friendly
+  5: [[220,277,330], [246,311,370], [261,329,392]], // tense negotiation
+  6: [[523,659,784], [587,740,880], [659,784,1047]] // victory epic
+};
+
+function startMusic(levelIdx) {
+  if (!audioCtx || !soundEnabled) return;
+  if (currentMusicStop) { clearInterval(currentMusicStop); currentMusicStop = null; }
+  const theme = MUSIC_THEMES[levelIdx] || MUSIC_THEMES[0];
+  let ci = 0;
+  const play = () => {
+    if (!soundEnabled) return;
+    playChord(theme[ci % theme.length], 1.2, 0.12);
+    ci++;
+  };
+  play();
+  currentMusicStop = setInterval(play, 1400);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════════════════════
+let particles = [];
+function spawnSnow(count = 80) {
+  for (let i = 0; i < count; i++) {
+    particles.push({ x: Math.random() * W * 2, y: Math.random() * H, vx: -0.3 - Math.random() * 0.5, vy: 0.4 + Math.random() * 0.7, r: 1 + Math.random() * 2.5, alpha: 0.4 + Math.random() * 0.5, type: 'snow' });
+  }
+}
+function spawnFirework(cx, cy) {
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2, spd = 2 + Math.random() * 3;
+    const colors = ['#ffd700','#ff6b6b','#6bcfff','#90ee90','#ff9f43'];
+    particles.push({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 3 + Math.random() * 3, alpha: 1, life: 60, decay: 0.016, type: 'firework', color: colors[Math.floor(Math.random() * colors.length)] });
+  }
+}
+function updateParticles() {
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.type === 'snow') { if (p.x < -10) p.x = W + 10; if (p.y > H + 10) { p.y = -10; p.x = Math.random() * W; } }
+    if (p.type === 'firework') { p.alpha -= p.decay; return p.alpha > 0.01; }
+    return true;
+  });
+}
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color || 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PLAYER
+// ═══════════════════════════════════════════════════════════
+const player = { x: 200, y: 280, vx: 0, vy: 0, speed: 2.2, dir: 'down', frame: 0, frameTimer: 0, moving: false, facingEnemy: false };
+
+function drawPlayer(px, py) {
+  const t = player.frame;
+  const legOff = Math.sin(t * 0.4) * 4;
+  ctx.save();
+  ctx.translate(px, py);
+
+  // Shadow
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(0, 18, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Legs
+  ctx.fillStyle = '#1a3a8e';
+  ctx.fillRect(-7, 6, 5, 10 + (player.moving ? legOff : 0));
+  ctx.fillRect(2, 6, 5, 10 + (player.moving ? -legOff : 0));
+
+  // Body (diplomat coat)
+  ctx.fillStyle = '#2a5abf';
+  ctx.fillRect(-9, -4, 18, 14);
+
+  // Tie
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(-1, -2, 2, 8);
+
+  // Head
+  ctx.fillStyle = '#ffcba4';
+  ctx.beginPath(); ctx.arc(0, -12, 9, 0, Math.PI * 2); ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#1a1a2e';
+  const eyeX = player.dir === 'left' ? -2 : player.dir === 'right' ? 2 : 0;
+  ctx.beginPath(); ctx.arc(eyeX - 3, -12, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(eyeX + 3, -12, 1.5, 0, Math.PI * 2); ctx.fill();
+
+  // Hat (diplomat)
+  ctx.fillStyle = '#1a3a6e';
+  ctx.fillRect(-10, -24, 20, 8);
+  ctx.fillRect(-7, -30, 14, 8);
+
+  // Briefcase
+  ctx.fillStyle = '#8b6914';
+  ctx.fillRect(9, -2, 8, 7); ctx.fillRect(11, -4, 4, 3);
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GAME DATA — 6 LEVELS
+// ═══════════════════════════════════════════════════════════
+const LEVELS = [
+  {
+    id: 1, title: 'Menemui Pulau Hans', titleEn: 'Discovering Hans Island',
+    bgColor: ['#0d2040','#1a3a6e'], waterColor: '#1a4a8e',
+    music: 1,
+    mapW: 800, mapH: 540,
+    playerStart: {x:108, y:267},
+    terrainColor: '#3a6040',
+    iceColor: '#c8dff0',
+    zones: [
+      { id:'boat', x:72, y:231, w:72, h:53, label:'🚢 Kapal', labelEn:'Boat', glow:true, task: true },
+      { id:'island', x:342, y:196, w:108, h:80, label:'🏔️ Pulau Hans', labelEn:'Hans Island', glow:true, task:false },
+      { id:'map', x:540, y:249, w:63, h:53, label:'🗺️ Peta', labelEn:'Map Table', glow:true, task:true },
+    ],
+    npcs: [
+      { x:324, y:178, flag:'🇩🇰', name:'Pegawai Denmark', text:'Pulau ini milik Denmark! Ia berhampiran Greenland kami.\n\nThis island belongs to Denmark! It is close to our Greenland.' },
+      { x:423, y:204, flag:'🇨🇦', name:'Pegawai Kanada', text:'Kanada juga menuntut pulau ini! Ia berhampiran wilayah Nunavut kami.\n\nCanada also claims this island! It is near our Nunavut territory.' },
+    ],
+    missionMs: 'Pergi ke kapal dan peta untuk memulakan misi!',
+    missionEn: 'Go to the boat and map to start your mission!',
+    clue: 'Diplomat, pergi ke 🚢 KAPAL untuk bermula, kemudian kaji 🗺️ PETA di sebelah kanan.\n\nGo to the BOAT to begin, then study the MAP on the right.',
+    tasks: [
+      { id:'boat', titleMs:'Berlepas ke Pulau Hans!', titleEn:'Set sail to Hans Island!', descMs:'Anda tiba di kawasan pertikaian. Pulau Hans ialah batu kecil seluas 1.3 km² yang terletak di antara Pulau Ellesmere (Kanada) dan Greenland (Denmark). Tekan butang SELESAI untuk meneruskan!', descEn:'You have arrived at the disputed area. Hans Island is a tiny 1.3 km² rock located between Ellesmere Island (Canada) and Greenland (Denmark).' },
+      { id:'map', titleMs:'Kaji Peta Wilayah!', titleEn:'Study the Territory Map!', descMs:'Perjanjian maritim 1973 antara Kanada dan Denmark telah melukis sempadan laut tetapi sengaja membiarkan status Pulau Hans tidak diselesaikan. Itulah punca pertikaian!\n\nThe 1973 maritime treaty drew sea boundaries but deliberately left Hans Island\'s status UNRESOLVED — that is the root of the dispute!', descEn:'' },
+    ],
+    completeFact: 'Bayangkan: sebatu kosong 1.3 km² di tengah Artik yang sejuk membeku — takde minyak, takde orang, takde apa. Tapi dua negara maju sanggup "bergaduh" 49 tahun atasnya. Kenapa? Sebab maruah. Dan di sinilah cerita ni jadi power: mereka pilih kawal emosi, bukan kawal pelatuk.\n\nA frozen, empty 1.3 km² rock — yet two nations cared enough to feud for 49 years. It was never about the rock. It was about pride, handled with cool heads.',
+    tasksNeeded: 2
+  },
+  {
+    id: 2, title: 'Cabaran Bendera', titleEn: 'The Flag Challenge',
+    bgColor: ['#0d1a30','#1a3050'], waterColor: '#1a3a7e',
+    music: 2, mapW:800, mapH:540,
+    playerStart:{x:90,y:249},
+    terrainColor:'#4a7050', iceColor:'#d0e8f5',
+    zones:[
+      {id:'dkflag',x:270,y:160,w:72,h:62,label:'🇩🇰 Tanam Bendera DK',labelEn:'Plant Danish Flag',glow:true,task:true},
+      {id:'caflag',x:414,y:178,w:72,h:62,label:'🇨🇦 Tanam Bendera CA',labelEn:'Plant Canadian Flag',glow:true,task:true},
+      {id:'archive',x:585,y:231,w:63,h:53,label:'📜 Arkib Sejarah',labelEn:'History Archive',glow:true,task:false},
+    ],
+    npcs:[
+      {x:252,y:142,flag:'🇩🇰',name:'Tom Høyem',text:'1984 — saya Menteri Denmark pertama tanam bendera sini. Tapi tau apa saya tinggalkan sekali? Sebotol schnapps untuk pihak Kanada. Mesej tersirat: "Kita tak setuju, tapi kita tak musuh." Itu EQ, bukan ego.\n\n1984 — I was the first Danish Minister to plant our flag. But I left a bottle of schnapps for the Canadians too. The message: we disagree, but we are not enemies.'},
+    ],
+    missionMs:'Tanam kedua-dua bendera untuk menuntut pulau ini!',
+    missionEn:'Plant both flags to claim the island!',
+    clue:'Diplomat! Cari kawasan 🇩🇰 BENDERA DENMARK dan 🇨🇦 BENDERA KANADA di peta. Mereka sama-sama menuntut pulau ini!\n\nFind the DANISH FLAG and CANADIAN FLAG zones — both countries claim the island!',
+    tasks:[
+      {id:'dkflag',titleMs:'Tanam Bendera Denmark!',titleEn:'Plant the Danish Flag!',descMs:'Denmark menuntut Pulau Hans kerana ia berhampiran Greenland yang dikuasai Denmark. Mereka tanam bendera Denmark dan tinggalkan nota: "Selamat datang ke Pulau Denmark!"\n\nDenmark claims Hans Island as it is near Greenland. They planted the Danish flag with a note: "Welcome to the Danish Island!"',descEn:''},
+      {id:'caflag',titleMs:'Tanam Bendera Kanada!',titleEn:'Plant the Canadian Flag!',descMs:'Kanada membalas dengan menanam bendera merah putih mereka dan meninggalkan sebotol Wiski Canadian Club dengan nota: "Selamat datang ke Kanada!"\n\nCanada responded by planting their flag and leaving a bottle of Canadian Club Whisky with a note: "Welcome to Canada!"',descEn:''},
+    ],
+    completeFact:'Plot twist terbaik: setiap kali satu pihak datang, mereka cabut bendera lawan, tanam bendera sendiri — tapi tinggalkan minuman dan nota mesra. Bukan provokasi, tapi macam "giliran kau, giliran aku". Mereka tahan marah (sabar) dan jaga sangka baik. Itulah husnuzon — anggap niat orang lain elok dulu sebelum nak melenting.\n\nEach visit, a side swapped the flags — but left a drink and a friendly note. No provocation, just turns. They held their temper and assumed good intent first.',
+    tasksNeeded:2
+  },
+  {
+    id: 3, title: 'Pertukaran Wiski & Schnapps', titleEn: 'The Friendly Whisky Exchange',
+    bgColor:['#0a1828','#142840'], waterColor:'#1e4a8e',
+    music:3, mapW:800, mapH:540,
+    playerStart:{x:90,y:267},
+    terrainColor:'#5a8060', iceColor:'#dceef8',
+    zones:[
+      {id:'schnapps',x:288,y:160,w:81,h:67,label:'🍶 Hantar Schnapps',labelEn:'Deliver Schnapps',glow:true,task:true},
+      {id:'whisky',x:423,y:173,w:81,h:67,label:'🥃 Hantar Wiski',labelEn:'Deliver Whisky',glow:true,task:true},
+      {id:'notes',x:558,y:222,w:72,h:58,label:'📝 Baca Nota',labelEn:'Read Notes',glow:true,task:true},
+    ],
+    npcs:[
+      {x:270,y:147,flag:'🇩🇰',name:'Diplomat Denmark',text:'Kami tinggalkan Gammel Dansk Schnapps dan nota: "Selamat datang ke pulau Denmark!" — cara yang sopan!\n\nWe left Gammel Dansk Schnapps and a note: "Welcome to the Danish island!" — how civilised!'},
+      {x:450,y:156,flag:'🇨🇦',name:'Diplomat Kanada',text:'Kami balas dengan Wiski Canadian Club dan nota: "Selamat datang ke Kanada!" Ini cara aman yang unik!\n\nWe responded with Canadian Club Whisky and a note: "Welcome to Canada!" This is uniquely peaceful!'},
+    ],
+    missionMs:'Hantar minuman dan kumpul nota persahabatan!',
+    missionEn:'Deliver drinks and collect friendly notes!',
+    clue:'Diplomat, cari kawasan 🍶 SCHNAPPS, 🥃 WISKI, dan 📝 NOTA di pulau ini. Ini adalah pertikaian paling sopan dalam sejarah!\n\nFind the SCHNAPPS, WHISKY and NOTES zones. This is history\'s most civilised dispute!',
+    tasks:[
+      {id:'schnapps',titleMs:'Hantar Schnapps Denmark!',titleEn:'Deliver Danish Schnapps!',descMs:'Pada setiap lawatan, pasukan Denmark meninggalkan sebotol Gammel Dansk Schnapps bersama nota mesra. Ini simbolik — menuntut pulau tanpa perang!\n\nOn each visit, the Danish team left a bottle of Gammel Dansk Schnapps with a friendly note. Symbolic sovereignty without war!',descEn:''},
+      {id:'whisky',titleMs:'Hantar Wiski Kanada!',titleEn:'Deliver Canadian Whisky!',descMs:'Pasukan Kanada pula meninggalkan Canadian Club Whisky. Kedua-dua pihak membuang bendera lawan dan tanam bendera sendiri — tetapi TIDAK PERNAH berperang!\n\nThe Canadian team left Canadian Club Whisky. Both sides removed each other\'s flags — but NEVER fought!',descEn:''},
+      {id:'notes',titleMs:'Kumpul Nota Persahabatan!',titleEn:'Collect Friendly Notes!',descMs:'"Berbeza dengan banyak pertikaian wilayah lain, Kanada dan Denmark mengendalikan pertikaian mereka secara aman dan santai — menjadikan Perang Wiski unik dalam sejarah diplomasi!"\n\n"Unlike many territorial disputes, Canada and Denmark handled their disagreement peacefully and humorously — making the Whisky War unique in diplomatic history!"',descEn:''},
+    ],
+    completeFact:'49 tahun "berperang", SIFAR korban. Senjata? Wiski lawan schnapps. Ini bukti besar: bila kau boleh kawal emosi dan rasa empati pada pihak lawan, "perang" pun boleh jadi macam main-main antara kawan. Hubungan kekal baik, maruah dua-dua terjaga. Power move, bukan?\n\n49 years of "war", ZERO casualties — whisky vs schnapps. Proof that when you manage emotions and feel empathy for your rival, even a "war" can stay friendly.',
+    tasksNeeded:3
+  },
+  {
+    id: 4, title: 'Tahun-Tahun Persahabatan', titleEn: 'Years of Friendship',
+    bgColor:['#0a1420','#12243c'], waterColor:'#1a3060',
+    music:4, mapW:800, mapH:540,
+    playerStart:{x:72,y:267},
+    terrainColor:'#607870', iceColor:'#e0eef8',
+    zones:[
+      {id:'timeline1',x:162,y:178,w:72,h:62,label:'📅 1973',labelEn:'Year 1973',glow:true,task:true},
+      {id:'timeline2',x:288,y:160,w:72,h:62,label:'📅 1984',labelEn:'Year 1984',glow:true,task:true},
+      {id:'timeline3',x:414,y:178,w:72,h:62,label:'📅 2002',labelEn:'Year 2002',glow:true,task:true},
+      {id:'timeline4',x:540,y:196,w:72,h:62,label:'📅 2012',labelEn:'Year 2012',glow:true,task:true},
+    ],
+    npcs:[
+      {x:360,y:267,flag:'🌍',name:'Pemerhati PBB',text:'Selama berdekad-dekad, Denmark dan Kanada kekal bersahabat walaupun pertikaian ini. Inilah model diplomasi aman!\n\nFor decades, Denmark and Canada remained friendly despite the dispute. This is a model of peaceful diplomacy!'},
+    ],
+    missionMs:'Terokai garis masa dan kumpulkan peristiwa penting!',
+    missionEn:'Explore the timeline and collect key events!',
+    clue:'Diplomat, ada 4 titik sejarah penting dalam peta ini: 📅 1973, 📅 1984, 📅 2002, dan 📅 2012. Terokai semua!\n\nThere are 4 historical markers: 1973, 1984, 2002, 2012. Explore them all!',
+    tasks:[
+      {id:'timeline1',titleMs:'Peristiwa 1973',titleEn:'Event 1973',descMs:'Perjanjian maritim Kanada-Denmark 1973 melukis sempadan laut — TETAPI sengaja meninggalkan status Pulau Hans sebagai tidak diselesaikan. Inilah punca Perang Wiski!\n\nThe 1973 Canada-Denmark maritime treaty drew sea boundaries — BUT deliberately left Hans Island\'s status UNRESOLVED. This caused the Whisky War!',descEn:''},
+      {id:'timeline2',titleMs:'Peristiwa 1984',titleEn:'Event 1984',descMs:'Menteri Denmark Tom Høyem menanam bendera Denmark dan meninggalkan schnapps — PERANG WISKI BERMULA! Ini menjadi tradisi yang berterusan selama hampir 50 tahun.\n\nDanish Minister Tom Høyem planted the Danish flag and left schnapps — THE WHISKY WAR BEGINS! This tradition continued for nearly 50 years.',descEn:''},
+      {id:'timeline3',titleMs:'Peristiwa 2002',titleEn:'Event 2002',descMs:'Kanada mendirikan plak di Pulau Hans. Denmark memfailkan bantahan rasmi kepada PBB. Dunia mula memperhatikan pertikaian "Perang Wiski" yang unik ini.\n\nCanada erected a plaque on Hans Island. Denmark filed a formal UN protest. The world began to notice this unique "Whisky War" dispute.',descEn:''},
+      {id:'timeline4',titleMs:'Peristiwa 2012',titleEn:'Event 2012',descMs:'Kumpulan Kerja Bersama Kanada-Denmark dibentuk untuk merundingkan penyelesaian aman. Ini menunjukkan komitmen kedua-dua negara terhadap diplomasi!\n\nA Canada-Denmark Joint Working Group was formed to negotiate a peaceful solution — showing both nations\' commitment to diplomacy!',descEn:''},
+    ],
+    completeFact:'Pertikaian berlangsung bertahun-tahun tetapi kedua-dua negara kekal bersahabat!\n\nThe dispute lasted for years but both countries remained friendly throughout!',
+    tasksNeeded:4
+  },
+  {
+    id: 5, title: 'Masa Rundingan', titleEn: 'Negotiation Time',
+    bgColor:['#0d1a2e','#1a2e4e'], waterColor:'#163050',
+    music:5, mapW:800, mapH:540,
+    playerStart:{x:81,y:258},
+    terrainColor:'#4a6858', iceColor:'#d8eaf5',
+    zones:[
+      {id:'kerjasama',x:198,y:160,w:90,h:62,label:'🤝 Kerjasama',labelEn:'Cooperation',glow:true,task:true},
+      {id:'hormat',x:333,y:151,w:81,h:62,label:'🙏 Hormat-menghormati',labelEn:'Respect',glow:true,task:true},
+      {id:'rundingan',x:459,y:164,w:90,h:62,label:'💬 Rundingan',labelEn:'Discussion',glow:true,task:true},
+      {id:'unclos',x:576,y:222,w:81,h:58,label:'⚖️ UNCLOS',labelEn:'UNCLOS Law',glow:true,task:true},
+    ],
+    npcs:[
+      {x:315,y:302,flag:'🇩🇰',name:'Diplomat Denmark',text:'Kami setuju berbincang melalui UNCLOS dan Majlis Artik. Dialog lebih baik daripada konflik!\n\nWe agree to discuss through UNCLOS and the Arctic Council. Dialogue is better than conflict!'},
+      {x:450,y:293,flag:'🇨🇦',name:'Diplomat Kanada',text:'Kanada bersetuju — rundingan aman adalah jalan terbaik untuk menyelesaikan pertikaian wilayah.\n\nCanada agrees — peaceful negotiation is the best way to resolve territorial disputes.'},
+    ],
+    missionMs:'Buka 4 "cheat code" EQ yang buat dua pihak akhirnya berdamai!',
+    missionEn:'Unlock the 4 EQ "cheat codes" that finally brought both sides to peace!',
+    clue:'Okay Diplomat, ni level otak. Rahsia kenapa pertikaian ni tak jadi perang sebenarnya 4 benda: 🤝 KERJASAMA, 🙏 HORMAT, 💬 RUNDINGAN, ⚖️ UNCLOS. Semuanya berpaksi pada satu skill — kawal emosi (EQ). Pergi buka satu-satu.\n\nThis is the brain level. The real reason this never became war boils down to 4 things — all powered by one skill: emotional intelligence. Go unlock them.',
+    tasks:[
+      {id:'kerjasama',titleMs:'EQ #1: Empati & Kerjasama',titleEn:'EQ #1: Empathy & Cooperation',descMs:'Cheat code pertama: cuba faham perasaan pihak lawan dulu sebelum nak menang. Bila Kanada dan Denmark berhenti tengok satu sama lain sebagai "musuh" dan mula tanya "apa sebenarnya mereka nak rasa?", barulah jalan penyelesaian terbuka. Dalam Islam, ini semangat ta\'awun — tolong-menolong atas kebaikan, bukan tolak-menolak atas ego.\n\nFirst cheat code: understand the other side\'s feelings before trying to "win". Once they stopped seeing each other as enemies, solutions opened up — the spirit of helping one another in good.',descEn:''},
+      {id:'hormat',titleMs:'EQ #2: Hormat & Tahan Diri',titleEn:'EQ #2: Respect & Self-Control',descMs:'Tak setuju ≠ kena biadab. Dua-dua negara kekal hormat walaupun degil pasal pulau yang sama. Rahsianya kawal diri — tak balas provokasi dengan provokasi. Ini sangat dekat dengan ajaran Islam tentang menahan marah: orang yang kuat bukan yang menang gaduh, tapi yang mampu kawal diri masa marah. Real strength = kepala dingin.\n\nDisagreeing doesn\'t mean being rude. Both stayed respectful and refused to answer provocation with provocation. True strength is controlling yourself when angry — a cool head, not a hot temper.',descEn:''},
+      {id:'rundingan',titleMs:'EQ #3: Sabar & Hikmah dalam Rundingan',titleEn:'EQ #3: Patience & Wisdom in Negotiation',descMs:'Rundingan bukan tarik-tali sehari siap — ia ambil bertahun. Yang buat ia jadi: sabar (tak rush nak menang) + hikmah (bijak pilih masa & cara bercakap). Bila emosi tinggi, akal jadi pendek; jadi mereka tunggu kepala dingin baru berbincang. Islam letak sabar dan hikmah sebagai kunci selesaikan masalah dengan cara terbaik, bukan cara paling laju.\n\nNegotiation took years, not a day. What made it work: patience (no rush to "win") + wisdom (knowing when and how to speak). When emotions run high, judgment runs short — so they waited for cool heads.',descEn:''},
+      {id:'unclos',titleMs:'EQ #4: Keadilan & UNCLOS',titleEn:'EQ #4: Justice & UNCLOS',descMs:'EQ tanpa keadilan tak lengkap — kena ada peraturan adil yang dua pihak setuju. UNCLOS (undang-undang laut PBB) jadi "wasit" neutral supaya keputusan bukan ikut siapa lebih kuat, tapi ikut apa yang adil. Konsep ini selari dengan keadilan dan sulh (perdamaian) dalam Islam: selesaikan pertikaian secara adil supaya dua pihak rasa menang, bukan satu pihak rasa tertindas.\n\nEQ without justice is incomplete — you need fair rules both sides accept. UNCLOS became the neutral referee, so the outcome followed what was fair, not who was stronger — a just reconciliation where both sides win.',descEn:''},
+    ],
+    completeFact:'Notice tak? Setiap langkah dua pihak — bila nak datang, bila nak diam, bila nak bercakap — semuanya dipandu oleh emosi yang terkawal, bukan emosi yang meletup. Itulah kuasa sebenar EQ: ia diam-diam "stir" setiap keputusan ke arah damai. Empati, sabar, hormat, keadilan — combo ni la yang menang.\n\nNotice it? Every move both sides made was steered by controlled emotion, not explosive emotion. That\'s the quiet power of EQ — empathy, patience, respect and justice were the real MVPs.',
+    tasksNeeded:4
+  },
+  {
+    id: 6, title: 'Perjanjian Damai 2022!', titleEn: 'Settlement of Dispute 2022!',
+    bgColor:['#0d1e2e','#162840'], waterColor:'#1a3878',
+    music:6, mapW:800, mapH:540,
+    playerStart:{x:72,y:267},
+    terrainColor:'#608060', iceColor:'#ddf0fa',
+    zones:[
+      {id:'border',x:315,y:142,w:99,h:76,label:'✍️ Lukis Sempadan',labelEn:'Draw Border',glow:true,task:true},
+      {id:'treaty',x:468,y:156,w:90,h:71,label:'📋 Tandatangan',labelEn:'Sign Treaty',glow:true,task:true},
+      {id:'celebrate',x:558,y:249,w:81,h:62,label:'🎉 Raikan Damai!',labelEn:'Celebrate Peace!',glow:true,task:true},
+    ],
+    npcs:[
+      {x:306,y:133,flag:'🇩🇰',name:'PM Denmark',text:'Pada 14 Jun 2022, kami menandatangani perjanjian bahagi Pulau Hans — mengikut tadahan air semula jadi pulau tersebut!\n\nOn June 14 2022, we signed the agreement to divide Hans Island — following its natural watershed!'},
+      {x:486,y:142,flag:'🇨🇦',name:'PM Kanada',text:'Ini menjadi sempadan darat pertama antara Kanada dan Denmark — diselesaikan aman setelah 49 tahun!\n\nThis became the first land border between Canada and Denmark — peacefully resolved after 49 years!'},
+    ],
+    missionMs:'Selesaikan Perang Wiski dan raikan perdamaian!',
+    missionEn:'Resolve the Whisky War and celebrate peace!',
+    clue:'Diplomat yang hebat! Misi terakhir anda — ✍️ LUKIS SEMPADAN, 📋 TANDATANGAN perjanjian, dan 🎉 RAIKAN PERDAMAIAN!\n\nFinal mission — DRAW THE BORDER, SIGN the treaty, and CELEBRATE PEACE!',
+    tasks:[
+      {id:'border',titleMs:'Lukis Sempadan Baru!',titleEn:'Draw the New Border!',descMs:'Pulau Hans dibahagi dua mengikut tadahan air semula jadi pulau tersebut. Kanada mendapat bahagian barat, Denmark mendapat bahagian timur. Mudah dan adil!\n\nHans Island was divided following its natural watershed. Canada gets the western half, Denmark gets the eastern half. Simple and fair!',descEn:''},
+      {id:'treaty',titleMs:'Tandatangan Perjanjian Damai!',titleEn:'Sign the Peace Treaty!',descMs:'"Pada tahun 2022, Kanada dan Denmark bersetuju secara aman untuk membahagikan Pulau Hans dan secara rasmi menamatkan Perang Wiski yang berlangsung selama 49 tahun."\n\n"In 2022, Canada and Denmark peacefully agreed to divide Hans Island and officially ended the 49-year Whisky War."',descEn:''},
+      {id:'celebrate',titleMs:'Raikan Perdamaian!',titleEn:'Celebrate Peace!',descMs:'Tahniah, Diplomat! Anda berjaya! Perang Wiski adalah contoh terbaik bagaimana negara-negara boleh menyelesaikan pertikaian secara aman melalui kerjasama dan rundingan. 49 TAHUN, 0 KORBAN!\n\nCongratulations, Diplomat! You succeeded! The Whisky War is the best example of how countries can resolve disputes peacefully through cooperation and negotiation. 49 YEARS, ZERO CASUALTIES!',descEn:''},
+    ],
+    completeFact:'Inilah moral cerita ni: dispute TAK semestinya selesai dengan perang. 49 tahun, 0 korban, dan akhirnya 1 sempadan dikongsi adil — sebab dua pihak pilih sabar, hikmah, hormat dan keadilan. Dalam Islam pun jalan terbaik selesaikan pertikaian ialah sulh (perdamaian) — cari penyelesaian yang dua pihak menang, bukan tunjuk siapa kuat. Bila otak dan hati selari, musuh boleh jadi jiran.\n\nThe moral: a dispute does NOT have to end in war. 49 years, 0 casualties, 1 fairly-shared border — because both chose patience, wisdom, respect and justice. The best path is reconciliation where both sides win.',
+    tasksNeeded:3
+  }
+];
+
+// ═══════════════════════════════════════════════════════════
+//  QUIZ GATE — 1 soalan dwibahasa setiap level (kena jawab BETUL
+//  baru boleh naik level). Fakta berdasarkan prompt rasmi game.
+// ═══════════════════════════════════════════════════════════
+const LEVEL_QUIZ = [
+  { // Level 1
+    q:'Pulau Hans terletak di antara Kanada dan wilayah mana?',
+    qEn:'Hans Island is located between Canada and which territory?',
+    opts:[
+      {ms:'Greenland (milik Denmark)', en:'Greenland (owned by Denmark)'},
+      {ms:'Iceland', en:'Iceland'},
+      {ms:'Jepun', en:'Japan'}
+    ], answer:0
+  },
+  { // Level 2
+    q:'Bagaimana Kanada & Denmark menuntut Pulau Hans?',
+    qEn:'How did Canada & Denmark claim Hans Island?',
+    opts:[
+      {ms:'Dengan menanam bendera masing-masing', en:'By planting their own flags'},
+      {ms:'Dengan menghantar tentera berperang', en:'By sending armies to fight'},
+      {ms:'Dengan membina kubu senjata', en:'By building weapon forts'}
+    ], answer:0
+  },
+  { // Level 3
+    q:'Setiap kali melawat pulau, apa yang ditinggalkan kedua-dua pihak?',
+    qEn:'On each visit to the island, what did both sides leave behind?',
+    opts:[
+      {ms:'Botol wiski/schnapps & nota mesra', en:'Bottles of whisky/schnapps & friendly notes'},
+      {ms:'Surat ancaman', en:'Threatening letters'},
+      {ms:'Senjata', en:'Weapons'}
+    ], answer:0
+  },
+  { // Level 4
+    q:'Walaupun pertikaian berlarutan bertahun-tahun, hubungan dua negara...',
+    qEn:'Although the dispute lasted for years, the two countries’ relationship...',
+    opts:[
+      {ms:'Kekal bersahabat', en:'Stayed friendly'},
+      {ms:'Bertukar menjadi peperangan', en:'Turned into war'},
+      {ms:'Putus terus', en:'Broke off completely'}
+    ], answer:0
+  },
+  { // Level 5
+    q:'Cara terbaik negara menyelesaikan pertikaian menurut level ini ialah...',
+    qEn:'The best way for countries to resolve disputes, according to this level, is...',
+    opts:[
+      {ms:'Rundingan & berbincang secara aman', en:'Negotiation & peaceful discussion'},
+      {ms:'Peperangan', en:'War'},
+      {ms:'Mengabaikan masalah', en:'Ignoring the problem'}
+    ], answer:0
+  },
+  { // Level 6
+    q:'Pada tahun berapa Perang Wiski tamat dengan pembahagian Pulau Hans secara aman?',
+    qEn:'In what year did the Whisky War end with the peaceful division of Hans Island?',
+    opts:[
+      {ms:'2022', en:'2022'},
+      {ms:'1984', en:'1984'},
+      {ms:'2000', en:'2000'}
+    ], answer:0
+  }
+];
+
+// ═══════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════
+let G = {
+  level: 0, running: false, score: 0,
+  tasksCompleted: [], tasksDone: 0,
+  cameraX: 0, cameraY: 0,
+  activeNpc: null, narratorQueue: [], narratorActive: false,
+  zonesDiscovered: [],
+  interactCooldown: 0,
+  lastStepTime: 0, stepCount: 0,
+  levelStartTime: 0, levelElapsed: 0, timeBonusEarned: 0,
+  pendingZone: null, levelDone: false, rushWarned: false,
+  quizAttempts: 0,
+};
+
+// Sasaran masa setiap level (saat) — habiskan bawah ni untuk BONUS MASA + thrill
+const TARGET_TIMES = [45, 50, 55, 60, 60, 55];
+function fmtTime(s) { const m = Math.floor(s/60), sec = Math.floor(s%60); return `${m}:${sec<10?'0':''}${sec}`; }
+
+function currentLevel() { return LEVELS[G.level]; }
+
+// ═══════════════════════════════════════════════════════════
+//  NARRATOR SYSTEM
+// ═══════════════════════════════════════════════════════════
+let narratorTimeout = null;
+function showNarrator(text, auto = false) {
+  if (narratorTimeout) { clearTimeout(narratorTimeout); narratorTimeout = null; }
+  const box = document.getElementById('narratorBox');
+  const lines = text.split('\n\n');
+  document.getElementById('narText').textContent = lines[0] || '';
+  document.getElementById('narTextEn').textContent = lines[1] || '';
+  box.classList.remove('hidden');
+  const btn = document.getElementById('narNext');
+  btn.style.display = auto ? 'none' : 'block';
+  if (auto) narratorTimeout = setTimeout(hideNarrator, 4500);
+}
+function hideNarrator() {
+  if (narratorTimeout) { clearTimeout(narratorTimeout); narratorTimeout = null; }
+  document.getElementById('narratorBox').classList.add('hidden');
+}
+document.getElementById('narNext').onclick = () => { hideNarrator(); G.narratorActive = false; };
+
+// ═══════════════════════════════════════════════════════════
+//  NPC TALK
+// ═══════════════════════════════════════════════════════════
+function showNpcDialog(npc) {
+  if (narratorTimeout) { clearTimeout(narratorTimeout); narratorTimeout = null; }
+  G.narratorActive = true;
+  const box = document.getElementById('narratorBox');
+  document.querySelector('.nar-avatar').textContent = npc.flag;
+  document.querySelector('.nar-name').textContent = npc.name.toUpperCase();
+  const lines = npc.text.split('\n\n');
+  document.getElementById('narText').textContent = lines[0] || '';
+  document.getElementById('narTextEn').textContent = lines[1] || '';
+  box.classList.remove('hidden');
+  document.getElementById('narNext').style.display = 'block';
+  sfxInteract();
+}
+function resetNarratorStyle() {
+  document.querySelector('.nar-avatar').textContent = '🎙️';
+  document.querySelector('.nar-name').textContent = 'PENASIHAT DIPLOMAT';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TASK SYSTEM
+// ═══════════════════════════════════════════════════════════
+function showTask(task) {
+  if (narratorTimeout) { clearTimeout(narratorTimeout); narratorTimeout = null; }
+  hideNarrator();
+  G.narratorActive = true;
+  document.getElementById('taskTitle').textContent = task.titleMs;
+  document.getElementById('taskTitleMs').textContent = task.titleEn;
+  const lines = task.descMs.split('\n\n');
+  document.getElementById('taskBody').innerHTML = `
+    <p style="font-size:0.82rem;color:#c8e0f8;line-height:1.6;margin-bottom:10px">${lines[0]}</p>
+    ${lines[1] ? `<p style="font-size:0.72rem;color:#6a9abf;line-height:1.5;font-style:italic">${lines[1]}</p>` : ''}
+  `;
+  const btn = document.getElementById('taskCompleteBtn');
+  btn.style.display = 'block';
+  document.getElementById('taskOverlay').classList.remove('hidden');
+  sfxInteract();
+}
+
+function completeTask() {
+  const taskOverlay = document.getElementById('taskOverlay');
+  taskOverlay.classList.add('hidden');
+  G.narratorActive = false;
+  // Mark the zone done now (not when opened) so ✓ only shows after SELESAI
+  if (G.pendingZone && !G.tasksCompleted.includes(G.pendingZone)) {
+    G.tasksCompleted.push(G.pendingZone);
+  }
+  G.pendingZone = null;
+  G.tasksDone++;
+  G.score += 100;
+  document.getElementById('scoreBox').textContent = `⭐ ${G.score}`;
+  updateMissionProgress();
+  sfxSuccess();
+  const lvl = currentLevel();
+  // Semua tugasan siap → pintu kuiz dulu, baru boleh naik level
+  if (G.tasksDone >= lvl.tasksNeeded) {
+    setTimeout(showQuiz, 600);
+  } else {
+    const remaining = lvl.tasksNeeded - G.tasksDone;
+    const tail = remaining === 1 ? 'Tinggal 1 je lagi — finish strong!' : `Tinggal ${remaining} lagi. Jom score!`;
+    showNarrator(`Nice! ${tail}\n\nWell done! ${remaining} more to go. Keep exploring!`, true);
+    resetNarratorStyle();
+  }
+}
+
+// HUD task progress (e.g. "🎯 2/3")
+function updateMissionProgress() {
+  const lvl = currentLevel();
+  document.getElementById('missionText').textContent = `${lvl.missionMs}  ·  🎯 ${G.tasksDone}/${lvl.tasksNeeded}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  QUIZ GATE — kena jawab betul baru naik level
+// ═══════════════════════════════════════════════════════════
+function showQuiz() {
+  const quiz = LEVEL_QUIZ[G.level];
+  if (!quiz) { showLevelComplete(); return; } // safety
+  G.narratorActive = true; // kunci pergerakan + pause timer
+  G.quizAttempts = 0;
+  hideNarrator();
+  document.getElementById('quizQ').textContent = quiz.q;
+  document.getElementById('quizQEn').textContent = quiz.qEn;
+  const fb = document.getElementById('quizFeedback');
+  fb.innerHTML = '';
+  // Shuffle option order so jawapan betul bukan selalu di atas
+  const order = quiz.opts.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const optsDiv = document.getElementById('quizOpts');
+  optsDiv.innerHTML = '';
+  order.forEach(origIdx => {
+    const o = quiz.opts[origIdx];
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.innerHTML = `${o.ms}<span class="opt-en">${o.en}</span>`;
+    btn.onclick = () => answerQuiz(btn, origIdx === quiz.answer);
+    optsDiv.appendChild(btn);
+  });
+  document.getElementById('quizOverlay').classList.remove('hidden');
+  sfxInteract();
+}
+
+function answerQuiz(btn, isCorrect) {
+  const fb = document.getElementById('quizFeedback');
+  if (isCorrect) {
+    btn.classList.add('correct');
+    document.querySelectorAll('#quizOpts .quiz-opt').forEach(b => b.disabled = true);
+    const bonus = G.quizAttempts === 0 ? 60 : 30; // betul kali pertama dapat lebih
+    G.score += bonus;
+    document.getElementById('scoreBox').textContent = `⭐ ${G.score}`;
+    fb.style.color = '#6fe39a';
+    fb.innerHTML = `✅ Betul! +${bonus} ⭐<span class="fb-en">Correct! Great job, Diplomat!</span>`;
+    sfxSuccess();
+    setTimeout(() => {
+      document.getElementById('quizOverlay').classList.add('hidden');
+      showLevelComplete();
+    }, 1100);
+  } else {
+    G.quizAttempts++;
+    btn.classList.add('wrong'); btn.disabled = true;
+    fb.style.color = '#ff9a8a';
+    fb.innerHTML = `❌ Belum tepat — cuba lagi!<span class="fb-en">Not quite — try again!</span>`;
+    sfxWrong();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LEVEL COMPLETE
+// ═══════════════════════════════════════════════════════════
+function showLevelComplete() {
+  G.levelDone = true; // freeze timer
+  document.getElementById('timerBox').classList.remove('rush');
+  sfxCelebrate();
+  const lvl = currentLevel();
+  document.getElementById('lcStar').textContent = G.level === 5 ? '🏆' : '⭐';
+  document.getElementById('lcTitle').textContent = G.level === 5 ? 'TAHNIAH! MISI SELESAI!' : `TAHAP ${lvl.id} SELESAI!`;
+  document.getElementById('lcTitleMs').textContent = G.level === 5 ? 'Congratulations! Mission Complete!' : `Level ${lvl.id} Complete!`;
+  // ⏱️ Kira bonus masa + rating laju
+  const target = TARGET_TIMES[G.level] || 60;
+  const t = G.levelElapsed;
+  let bonus = 0, rating, ratingMs;
+  if (t <= target) { bonus = Math.round((target - t) * 4) + 50; rating = '⚡ SPEEDRUN DIPLOMAT'; ratingMs = 'Laju gila, respect!'; }
+  else if (t <= target * 1.5) { bonus = 25; rating = '👌 SOLID MOVE'; ratingMs = 'Steady, takde rush sangat.'; }
+  else { bonus = 10; rating = '🐢 SLOW & STEADY'; ratingMs = 'Slow pun takpe — yang penting setel.'; }
+  G.score += bonus; G.timeBonusEarned += bonus;
+  document.getElementById('scoreBox').textContent = `⭐ ${G.score}`;
+
+  const factLines = lvl.completeFact.split('\n\n');
+  document.getElementById('lcFact').innerHTML =
+    `<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(107,207,255,0.12);border:1px solid rgba(107,207,255,0.35);border-radius:8px;padding:7px 10px;margin-bottom:10px">
+       <span style="font-size:0.72rem;font-weight:700;color:#6bcfff">${rating}</span>
+       <span style="font-size:0.7rem;color:#ffd700">⏱️ ${fmtTime(t)} · +${bonus} ⭐</span>
+     </div>
+     <div style="font-size:0.66rem;color:#8ab4d8;margin-bottom:8px">${ratingMs}</div>
+     <strong>${factLines[0]}</strong>${factLines[1] ? `<div class="lc-fact-en">${factLines[1]}</div>` : ''}`;
+  const btn = document.getElementById('lcBtn');
+  btn.textContent = G.level === 5 ? '🎊 LIHAT PENAMAT!' : 'TAHAP SETERUSNYA ▶';
+  document.getElementById('levelComplete').classList.remove('hidden');
+
+  // Fireworks!
+  for (let i = 0; i < 6; i++) setTimeout(() => spawnFirework(100 + Math.random() * 600, 50 + Math.random() * 300), i * 200);
+}
+
+function nextLevel() {
+  document.getElementById('levelComplete').classList.add('hidden');
+  if (G.level >= 5) { showEnding(); return; }
+  G.level++;
+  G.tasksDone = 0;
+  G.tasksCompleted = [];
+  G.zonesDiscovered = [];
+  loadLevel();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ENDING
+// ═══════════════════════════════════════════════════════════
+function showEnding() {
+  G.running = false;
+  canvas.style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('narrator').style.display = 'none';
+  document.getElementById('soundToggle').style.display = 'none';
+  document.getElementById('minimap').style.display = 'none';
+
+  const endDiv = document.createElement('div');
+  endDiv.id = 'endScreen';
+  endDiv.style.cssText = 'position:absolute;inset:0;background:linear-gradient(160deg,#060d1e,#0d2040);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;z-index:90;';
+  endDiv.innerHTML = `
+    <div style="font-size:4rem;margin-bottom:14px;animation:float 2s ease-in-out infinite">🏆</div>
+    <div style="font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900;color:#ffd700;margin-bottom:6px">TAHNIAH, DIPLOMAT!</div>
+    <div style="font-size:clamp(0.9rem,2.5vw,1.2rem);color:#a8d4f5;margin-bottom:18px">Congratulations, Diplomat!</div>
+    <div style="max-width:520px;background:rgba(255,255,255,0.05);border:1px solid rgba(100,180,255,0.3);border-radius:14px;padding:16px 22px;margin-bottom:18px;font-size:clamp(0.72rem,1.8vw,0.88rem);color:#c0d8f0;line-height:1.65;text-align:left">
+      <strong style="color:#ffd700">🕊️ Lesson unlocked: dispute tak semestinya berakhir dengan perang.</strong> Yang setel Perang Wiski bukan senjata — tapi EQ: empati untuk faham pihak lawan, sabar untuk tak rush, hormat walaupun tak setuju, dan keadilan masa buat keputusan.<br><br>
+      <span style="color:#9fd4a8">Nilai-nilai ni sebenarnya sejajar dengan ajaran Islam — sabar menahan marah, hikmah dalam tindakan, husnuzon (sangka baik), dan sulh (perdamaian yang dua pihak menang). Bila kepala dingin pimpin hati, musuh boleh jadi jiran. That\'s the real flex. 💪</span><br><br>
+      <em style="color:#6a9abf">🌍 The Whisky War wasn\'t won by weapons — but by emotional intelligence: empathy, patience, respect and justice. Cool heads make peace.</em><br><br>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+        <div style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.5rem">49</div><div style="font-size:0.65rem;color:#6a9abf">TAHUN PERTIKAIAN</div></div>
+        <div style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.5rem">0</div><div style="font-size:0.65rem;color:#6a9abf">KORBAN</div></div>
+        <div style="background:rgba(196,163,75,0.15);border:1px solid rgba(196,163,75,0.4);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.5rem">🕊️</div><div style="font-size:0.65rem;color:#6a9abf">PENYELESAIAN AMAN</div></div>
+        <div style="background:rgba(196,163,75,0.15);border:1px solid rgba(196,163,75,0.4);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.5rem">${G.score}</div><div style="font-size:0.65rem;color:#6a9abf">MATA ANDA</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button onclick="location.reload()" style="background:linear-gradient(135deg,#c4a34b,#8b6914);border:none;border-radius:10px;padding:12px 28px;color:#0a0f1e;font-size:0.88rem;font-weight:700;cursor:pointer;letter-spacing:2px">↻ MAIN SEMULA</button>
+      <button onclick="showCertificate()" style="background:linear-gradient(135deg,#27ae60,#1a8a48);border:none;border-radius:10px;padding:12px 28px;color:white;font-size:0.88rem;font-weight:700;cursor:pointer;letter-spacing:2px">🎖️ SIJIL DIPLOMAT</button>
+    </div>
+  `;
+  container.appendChild(endDiv);
+  sfxCelebrate();
+  for (let i = 0; i < 15; i++) setTimeout(() => spawnFirework(100 + Math.random() * 600, 50 + Math.random() * 400), i * 150);
+  requestAnimationFrame(function loop() { ctx; updateParticles(); if (endDiv.parentNode) requestAnimationFrame(loop); });
+}
+
+function showCertificate() {
+  const cert = window.open('', '_blank');
+  cert.document.write(`<!DOCTYPE html><html><head><title>Sijil Diplomat</title><style>body{font-family:Georgia,serif;background:#f5f0e8;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+  .cert{max-width:700px;width:95%;background:white;border:4px solid #c4a34b;border-radius:16px;padding:40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.2)}
+  h1{color:#c4a34b;font-size:2rem;margin-bottom:6px}.sub{color:#666;font-size:0.9rem;letter-spacing:2px;margin-bottom:30px}
+  .name{font-size:2.2rem;color:#1a3a6e;margin:20px 0;border-bottom:2px solid #c4a34b;padding-bottom:12px}
+  .body{line-height:1.7;color:#333;margin-bottom:20px}.flags{font-size:3rem;margin:16px 0}
+  .footer{color:#888;font-size:0.8rem;margin-top:24px}
+  @media print{.nobtn{display:none}}</style></head><body>
+  <div class="cert"><div style="font-size:3rem">🏅</div>
+  <h1>SIJIL DIPLOMAT / DIPLOMAT CERTIFICATE</h1>
+  <div class="sub">PERANG WISKI — WHISKY WAR ADVENTURE</div>
+  <div class="body">Ini mengesahkan bahawa / This certifies that:</div>
+  <div class="name">Diplomat Muda ⭐</div>
+  <div class="body">telah berjaya menyelesaikan semua 6 tahap permainan Pengembaraan Aman Perang Wiski dan mempelajari bagaimana Kanada dan Denmark menyelesaikan pertikaian wilayah mereka secara aman pada tahun 2022.<br><br>
+  <em>has successfully completed all 6 levels of the Whisky War Peaceful Adventure and learned how Canada and Denmark peacefully resolved their territorial dispute in 2022.</em></div>
+  <div class="flags">🇨🇦 🤝 🇩🇰</div>
+  <div><strong>Mata Diperoleh / Score: ${G.score}</strong></div>
+  <div class="footer">Tarikh: ${new Date().toLocaleDateString('ms-MY')} | Perang Wiski 1973–2022 | 49 Tahun · 0 Korban · 1 Perjanjian Aman</div>
+  <div class="nobtn" style="margin-top:20px"><button onclick="window.print()" style="background:#c4a34b;border:none;border-radius:8px;padding:10px 24px;color:#fff;font-size:0.9rem;cursor:pointer;font-weight:700">🖨️ CETAK / PRINT</button></div>
+  </div></body></html>`);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP DRAWING
+// ═══════════════════════════════════════════════════════════
+function drawMap(lvl) {
+  const t = Date.now() / 1000;
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, lvl.bgColor[0]);
+  skyGrad.addColorStop(1, lvl.bgColor[1]);
+  ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 137 + 50) % W, sy = (i * 97 + 30) % 180;
+    const br = (Math.sin(t * 0.7 + i) + 1) * 0.4 + 0.1;
+    ctx.globalAlpha = br; ctx.beginPath(); ctx.arc(sx, sy, 0.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Water / ocean
+  const waterY = H * 0.72;
+  const waterGrad = ctx.createLinearGradient(0, waterY, 0, H);
+  waterGrad.addColorStop(0, lvl.waterColor);
+  waterGrad.addColorStop(1, '#06101e');
+  ctx.fillStyle = waterGrad;
+  ctx.beginPath(); ctx.moveTo(0, waterY); ctx.lineTo(W, waterY); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+
+  // Waves
+  ctx.strokeStyle = 'rgba(100,180,255,0.25)'; ctx.lineWidth = 1.5;
+  for (let wi = 0; wi < 4; wi++) {
+    ctx.beginPath();
+    const wY = waterY + 8 + wi * 16;
+    for (let x = 0; x <= W; x += 4) {
+      const y = wY + Math.sin((x / 60) + t * 1.2 + wi * 0.8) * 3;
+      wi === 0 && x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Island terrain
+  const iw = W, ih = H;
+  ctx.fillStyle = lvl.terrainColor;
+  ctx.beginPath();
+  ctx.moveTo(iw*0.22, waterY + 2);
+  ctx.bezierCurveTo(iw*0.28, waterY-46, iw*0.38, waterY-80, iw*0.5, waterY-89);
+  ctx.bezierCurveTo(iw*0.65, waterY-84, iw*0.78, waterY-62, iw*0.85, waterY-18);
+  ctx.bezierCurveTo(iw*0.88, waterY-4, iw*0.9, waterY+4, iw*0.94, waterY+2);
+  ctx.lineTo(iw*0.22, waterY+2); ctx.closePath(); ctx.fill();
+
+  // Snow cap
+  ctx.fillStyle = lvl.iceColor;
+  ctx.beginPath();
+  ctx.moveTo(iw*0.32, waterY-49);
+  ctx.bezierCurveTo(iw*0.38, waterY-85, iw*0.48, waterY-98, iw*0.58, waterY-93);
+  ctx.bezierCurveTo(iw*0.67, waterY-89, iw*0.74, waterY-71, iw*0.78, waterY-54);
+  ctx.bezierCurveTo(iw*0.73, waterY-49, iw*0.63, waterY-58, iw*0.58, waterY-58);
+  ctx.bezierCurveTo(iw*0.5, waterY-62, iw*0.43, waterY-54, iw*0.32, waterY-49);
+  ctx.closePath(); ctx.fill();
+
+  // Floating ice chunks
+  for (let ic = 0; ic < 5; ic++) {
+    const ix = (ic * (W/5) + 40 + Math.sin(t * 0.3 + ic) * 12) % W;
+    const iy = waterY + 5 + ic * 10;
+    ctx.fillStyle = `rgba(200,230,250,${0.6 + Math.sin(t + ic) * 0.15})`;
+    ctx.beginPath(); ctx.ellipse(ix, iy, 16 + ic * 3, 5, 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Mountain rocks
+  ctx.fillStyle = '#3a4a5a';
+  const rocks = [
+    {x:iw*0.46,y:waterY-89,w:44,h:48},
+    {x:iw*0.54,y:waterY-84,w:36,h:43},
+    {x:iw*0.41,y:waterY-75,w:30,h:38}
+  ];
+  rocks.forEach(r => {
+    ctx.fillStyle = '#3a4a5a';
+    ctx.beginPath(); ctx.moveTo(r.x,r.y+r.h); ctx.lineTo(r.x-r.w/2,r.y+r.h); ctx.lineTo(r.x,r.y); ctx.lineTo(r.x+r.w/2,r.y+r.h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = lvl.iceColor;
+    ctx.beginPath(); ctx.moveTo(r.x,r.y); ctx.lineTo(r.x-r.w*0.2,r.y+r.h*0.35); ctx.lineTo(r.x+r.w*0.2,r.y+r.h*0.35); ctx.closePath(); ctx.fill();
+  });
+}
+
+// Draw zones
+function drawZones(lvl) {
+  const t = Date.now() / 1000;
+  lvl.zones.forEach(z => {
+    const done = G.tasksCompleted.includes(z.id);
+    const glow = Math.sin(t * 2 + z.x * 0.01) * 0.3 + 0.7;
+    if (done) {
+      ctx.fillStyle = 'rgba(39,174,96,0.25)'; ctx.strokeStyle = '#27ae60'; ctx.lineWidth = 2;
+    } else {
+      ctx.fillStyle = `rgba(100,180,255,${0.08 + glow * 0.12})`; ctx.strokeStyle = `rgba(100,180,255,${0.5 + glow * 0.4})`; ctx.lineWidth = 2;
+    }
+    ctx.beginPath(); ctx.roundRect(z.x, z.y, z.w, z.h, 10); ctx.fill(); ctx.stroke();
+
+    if (!done) {
+      // Pulsing ? mark
+      const pulse = Math.sin(t * 3 + z.x) * 0.3 + 0.8;
+      ctx.fillStyle = `rgba(255,220,80,${pulse})`;
+      ctx.font = `bold ${14 + Math.sin(t*2)*2}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('?', z.x + z.w/2, z.y - 8);
+    } else {
+      ctx.fillStyle = '#27ae60'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('✓', z.x + z.w/2, z.y - 8);
+    }
+
+    // Label
+    ctx.fillStyle = done ? '#90e890' : '#a8d4f5';
+    ctx.font = `bold 10px Arial`; ctx.textAlign = 'center';
+    const lbl = z.label.length > 18 ? z.label.substring(0, 17) + '…' : z.label;
+    ctx.fillText(lbl, z.x + z.w/2, z.y + z.h/2 + 5);
+  });
+}
+
+// Draw NPCs
+function drawNpcs(lvl) {
+  const t = Date.now() / 1000;
+  lvl.npcs.forEach(npc => {
+    const bob = Math.sin(t * 1.5 + npc.x) * 2;
+    ctx.save(); ctx.translate(npc.x, npc.y + bob);
+    // Body
+    ctx.fillStyle = npc.flag === '🇩🇰' ? '#c0392b' : npc.flag === '🇨🇦' ? '#8b0000' : '#1a6a3a';
+    ctx.fillRect(-8, -8, 16, 20);
+    // Head
+    ctx.fillStyle = '#ffcba4'; ctx.beginPath(); ctx.arc(0, -16, 10, 0, Math.PI * 2); ctx.fill();
+    // Flag emoji above
+    ctx.font = '16px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(npc.flag, 0, -30);
+    // Exclamation
+    const ex = Math.sin(t * 3 + npc.y) > 0.5 ? 1 : 0.5;
+    ctx.globalAlpha = ex; ctx.fillStyle = '#ffd700'; ctx.font = 'bold 14px Arial';
+    ctx.fillText('!', 14, -28); ctx.globalAlpha = 1;
+    ctx.restore();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INTERACTION CHECK
+// ═══════════════════════════════════════════════════════════
+function checkInteraction() {
+  if (G.interactCooldown > 0) return;
+  const lvl = currentLevel();
+  const px = player.x, py = player.y;
+
+  // Check NPC proximity
+  for (const npc of lvl.npcs) {
+    if (Math.abs(px - npc.x) < 40 && Math.abs(py - npc.y) < 50) {
+      showNpcDialog(npc); G.interactCooldown = 60; return;
+    }
+  }
+
+  // Check zone proximity
+  for (const z of lvl.zones) {
+    if (px > z.x - 20 && px < z.x + z.w + 20 && py > z.y - 20 && py < z.y + z.h + 30) {
+      if (G.tasksCompleted.includes(z.id)) continue;
+      if (!z.task) {
+        showNarrator(`📍 ${z.label}\n${z.labelEn}`, true);
+        G.tasksCompleted.push(z.id); G.interactCooldown = 60; return;
+      }
+      // Find task — only mark done AFTER player presses SELESAI (see completeTask)
+      const task = lvl.tasks.find(t => t.id === z.id);
+      if (task) {
+        G.pendingZone = z.id;
+        showTask(task); G.interactCooldown = 60; return;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════════
+const keys = {};
+function setKey(k, v) { keys[k] = v; }
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['w','arrowup'].includes(k)) keys.up = true;
+  if (['s','arrowdown'].includes(k)) keys.down = true;
+  if (['a','arrowleft'].includes(k)) keys.left = true;
+  if (['d','arrowright'].includes(k)) keys.right = true;
+  if ([' ','enter','e'].includes(k)) { e.preventDefault(); handleAction(); }
+});
+window.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  if (['w','arrowup'].includes(k)) keys.up = false;
+  if (['s','arrowdown'].includes(k)) keys.down = false;
+  if (['a','arrowleft'].includes(k)) keys.left = false;
+  if (['d','arrowright'].includes(k)) keys.right = false;
+});
+
+// Gamepad support
+let gamepad = null;
+window.addEventListener('gamepadconnected', e => {
+  gamepad = e.gamepad;
+  showNarrator('🎮 Gamepad disambungkan! Guna joystick kiri untuk bergerak, butang A untuk interaksi.\n\nGamepad connected! Use left joystick to move, A button to interact.', true);
+});
+window.addEventListener('gamepaddisconnected', () => { gamepad = null; });
+
+function pollGamepad() {
+  if (!gamepad) return;
+  const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+  const gp = gps[gamepad.index]; if (!gp) return;
+  const ax = gp.axes[0], ay = gp.axes[1];
+  const dead = 0.2;
+  keys.left = ax < -dead; keys.right = ax > dead;
+  keys.up = ay < -dead; keys.down = ay > dead;
+  // D-pad
+  if (gp.buttons[12]?.pressed) keys.up = true;
+  if (gp.buttons[13]?.pressed) keys.down = true;
+  if (gp.buttons[14]?.pressed) keys.left = true;
+  if (gp.buttons[15]?.pressed) keys.right = true;
+  // A/B button
+  if (gp.buttons[0]?.pressed || gp.buttons[1]?.pressed) handleAction();
+}
+
+function handleAction() {
+  if (!G.running) return;
+  if (G.narratorActive || G.levelDone) return;
+  checkInteraction();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MINIMAP
+// ═══════════════════════════════════════════════════════════
+function drawMinimap() {
+  const lvl = currentLevel();
+  mmCtx.fillStyle = '#0d1a30'; mmCtx.fillRect(0, 0, 90, 70);
+  // terrain
+  mmCtx.fillStyle = lvl.terrainColor;
+  mmCtx.fillRect(10, 20, 70, 35);
+  // zones
+  mmCtx.fillStyle = 'rgba(100,180,255,0.6)';
+  lvl.zones.forEach(z => { mmCtx.fillRect(z.x/W*90 - 2, z.y/H*70 - 2, 5, 5); });
+  // player
+  mmCtx.fillStyle = '#ffd700';
+  mmCtx.beginPath(); mmCtx.arc(player.x/W*90, player.y/H*70, 3, 0, Math.PI*2); mmCtx.fill();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UPDATE PLAYER MOVEMENT
+// ═══════════════════════════════════════════════════════════
+function updatePlayer() {
+  if (G.narratorActive || !G.running || G.levelDone) return;
+  let dx = 0, dy = 0;
+  if (keys.left) dx -= player.speed;
+  if (keys.right) dx += player.speed;
+  if (keys.up) dy -= player.speed;
+  if (keys.down) dy += player.speed;
+
+  // Diagonal normalise
+  if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+
+  player.moving = dx !== 0 || dy !== 0;
+  if (player.moving) {
+    if (Math.abs(dx) > Math.abs(dy)) player.dir = dx > 0 ? 'right' : 'left';
+    else player.dir = dy > 0 ? 'down' : 'up';
+    player.frameTimer++;
+    if (player.frameTimer > 6) { player.frame++; player.frameTimer = 0; }
+    // Step sound
+    G.stepCount++;
+    if (G.stepCount % 22 === 0 && soundEnabled) sfxStep();
+  }
+
+  // Boundary + terrain
+  const nx = Math.max(20, Math.min(W - 20, player.x + dx));
+  const ny = Math.max(40, Math.min(H - 70, player.y + dy));
+  player.x = nx; player.y = ny;
+
+  // Interaction cooldown
+  if (G.interactCooldown > 0) G.interactCooldown--;
+
+  // Auto zone detection — show hint when nearby
+  const lvl = currentLevel();
+  lvl.zones.forEach(z => {
+    if (!G.zonesDiscovered.includes(z.id)) {
+      if (Math.abs(player.x - (z.x + z.w/2)) < 80 && Math.abs(player.y - (z.y + z.h/2)) < 80) {
+        G.zonesDiscovered.push(z.id);
+        if (!G.narratorActive) {
+          showNarrator(`📍 "${z.label}" — Tekan SPACE atau E untuk berinteraksi!\n\nPress SPACE or E to interact!`, true);
+          resetNarratorStyle();
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOAD LEVEL
+// ═══════════════════════════════════════════════════════════
+function loadLevel() {
+  const lvl = currentLevel();
+  player.x = lvl.playerStart.x; player.y = lvl.playerStart.y;
+  G.narratorActive = true; // kunci sehingga clue dipaparkan
+  G.interactCooldown = 0;
+  G.levelStartTime = Date.now(); G.levelElapsed = 0;
+  G.levelDone = false; G.rushWarned = false; G.pendingZone = null;
+  G.quizAttempts = 0;
+  document.getElementById('quizOverlay').classList.add('hidden');
+  document.getElementById('timerBox').classList.remove('rush');
+  particles = []; spawnSnow(70);
+  document.getElementById('levelBadge').textContent = `TAHAP ${lvl.id}`;
+  updateMissionProgress();
+  startMusic(lvl.music);
+  resetNarratorStyle();
+  setTimeout(() => {
+    showNarrator(lvl.clue);
+    G.narratorActive = true;
+  }, 800);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  START GAME
+// ═══════════════════════════════════════════════════════════
+function startGame() {
+  initAudio(); startMusic(1);
+  document.getElementById('introScreen').classList.add('hidden');
+  G.running = true; G.level = 0; G.score = 0;
+  G.tasksDone = 0; G.tasksCompleted = []; G.zonesDiscovered = [];
+  particles = []; spawnSnow(70);
+  loadLevel();
+  requestAnimationFrame(gameLoop);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAIN GAME LOOP
+// ═══════════════════════════════════════════════════════════
+let lastTime = 0;
+function gameLoop(timestamp) {
+  if (!G.running) return;
+  const dt = timestamp - lastTime; lastTime = timestamp;
+  pollGamepad();
+  updatePlayer();
+  updateParticles();
+
+  // ⏱️ Timer — hanya mengira masa explore (pause masa narrator/tugasan/kuiz/level habis)
+  const counting = !G.levelDone && !G.narratorActive && document.getElementById('taskOverlay').classList.contains('hidden');
+  if (counting && dt < 200) G.levelElapsed += dt / 1000;
+  const tBox = document.getElementById('timerBox');
+  const target = TARGET_TIMES[G.level] || 60;
+  const left = target - G.levelElapsed;
+  if (left > 0) {
+    tBox.textContent = `⏱️ ${fmtTime(left)}`;
+    tBox.classList.toggle('rush', left <= 10 && counting);
+    // Amaran sekali bila tinggal 10 saat — tambah thrill
+    if (left <= 10 && !G.rushWarned && counting) {
+      G.rushWarned = true;
+      if (soundEnabled) { playTone(880, 'square', 0.12, 0.2); playTone(660, 'square', 0.12, 0.2, 0.14); }
+    }
+  } else {
+    tBox.textContent = `⏱️ +${fmtTime(G.levelElapsed - target)}`;
+    tBox.classList.remove('rush');
+  }
+
+  // Draw
+  ctx.clearRect(0, 0, W, H);
+  const lvl = currentLevel();
+  drawMap(lvl);
+  drawZones(lvl);
+  drawNpcs(lvl);
+  drawParticles();
+  drawPlayer(player.x, player.y);
+
+  // Proximity indicator near zones
+  lvl.zones.forEach(z => {
+    if (!G.tasksCompleted.includes(z.id)) {
+      const d = Math.hypot(player.x - (z.x+z.w/2), player.y - (z.y+z.h/2));
+      if (d < 70) {
+        ctx.fillStyle = `rgba(255,220,80,${(70-d)/70 * 0.9})`;
+        ctx.font = '11px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('[SPACE] Interaksi', z.x + z.w/2, z.y + z.h + 16);
+      }
+    }
+  });
+
+  drawMinimap();
+  requestAnimationFrame(gameLoop);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INTRO PARTICLES (before game start)
+// ═══════════════════════════════════════════════════════════
+spawnSnow(50);
+(function introAnim() {
+  if (G.running) return;
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#060d1e'); grad.addColorStop(1,'#0d2040');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+  updateParticles(); drawParticles();
+  requestAnimationFrame(introAnim);
+})();
+
+// Init canvas size
+resize();
+</script>
+</body>
+</html>
